@@ -1,6 +1,7 @@
 # model.py
 
 import ollama
+from ollama import Client
 import sys
 
 class ModelManager:
@@ -8,7 +9,7 @@ class ModelManager:
     Ollama 서버와의 모든 통신을 관리하는 클래스입니다.
     연결 확인, 모델(EEVE, Chat) 준비, 임베딩 생성을 담당합니다.
     """
-    def __init__(self, embedding_model='EEVE', chat_model='llama3'):
+    def __init__(self, embedding_model='eeve-korean', chat_model='llama3'):
         print("=== 모델 초기화 중... ===")
         self.embedding_model = embedding_model
         self.chat_model = chat_model
@@ -42,7 +43,6 @@ class ModelManager:
             print()
             
             self.is_ready = True
-            self.embedding_model = model_list[0]['model']
 
         except Exception as e:
             print(f"Error: {e}\n", file=sys.stderr)
@@ -62,7 +62,7 @@ class ModelManager:
             print(f"Error from 'get_embedding()': {e}", file=sys.stderr)
             return []
             
-    # Step 3에서 상세 피드백을 생성하기 위해 미리 만들어 둡니다.
+    # 모델 프롬프트 응답
     def get_chat_response(self, system_prompt: str, user_prompt: str) -> str:
         """
         채팅 모델을 사용해 자연어 응답을 생성합니다.
@@ -73,10 +73,31 @@ class ModelManager:
         try:
             messages = [
                 {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': user_prompt}
+                {'role': 'user', 'content': user_prompt},
+                {'role': 'assistant', 'content': "아늑하고 소파와 테이블이 있는 작은 거실이 좋아요."}
             ]
-            response = ollama.chat(model=self.chat_model, messages=messages)
+            options = {
+                "temperature": 1.0,
+                "num_ctx": 10,
+                "top_p": 1
+            }
+
+            # response = ollama.chat(
+            #     model=self.embedding_model, 
+            #     messages=messages,
+            #     options=options
+            # )
+            client = Client(
+                host='http://localhost:11434',
+                headers={'x-some-header': 'some-value'}
+            )
+            response = client.chat(
+                model=self.embedding_model, 
+                messages=messages,
+                options=options
+            )
+
             return response['message']['content']
         except Exception as e:
-            print(f"Error getting chat response: {e}", file=sys.stderr)
-            return "Error generating feedback."
+            print(f"Error 'get_chat_response()': {e}", file=sys.stderr)
+            return "🚨 피드백 생성 중 오류"

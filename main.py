@@ -1,8 +1,11 @@
 import pygame
 
-from furintures import FURNITURE_LIST
 import evaluation
+import client
 from model import ModelManager
+
+# 가구 리스트
+from furintures import FURNITURE_LIST
 
 # --- 상수 정의 ---
 SCREEN_WIDTH = 800
@@ -22,24 +25,27 @@ pygame.display.set_caption("Step 1: 2D 인테리어 샌드박스")
 
 # --- ModelManager 및 평가 변수 초기화 ---
 model_manager = None
-current_request_text = "소파와 테이블이 있는 아늑한 거실이면 좋겠어요."
+current_request_text = ""  # <-- 2. 동적으로 채워질 예정
 request_embedding = []
+# {"score": ..., "description": ..., "feedback": ...}
 evaluation_result = None
 
 try:
-    model_manager = ModelManager() # NEW: ModelManager 인스턴스 생성
+    model_manager = ModelManager()
     if not model_manager.is_ready:
-        print("ModelManager is not ready. Exiting.")
+        print("모델이 준비되지 않았습니다")
         running = False
     else:
-        # 고객 의뢰서(A)를 벡터로 변환 (ModelManager 사용)
-        print(f"고객 의뢰서: {current_request_text}")
+        # 3. 하드코딩된 의뢰서 대신, LLM으로 동적 생성
+        current_request_text = client.generate_request(model_manager)
+        
+        print(f"의뢰서 생성 중: {current_request_text}")
         request_embedding = model_manager.get_embedding(current_request_text)
         if not request_embedding:
-            print("🚨 의뢰서 임베딩 생성 실패")
+            print("의뢰서 임베딩 생성 실패!")
             running = False
 except Exception as e:
-    print(f"Failed to initialize ModelManager: {e}")
+    print(f"🚨 모델 초기화 실패: {e}")
     running = False
 
 # --- 변수 초기화 (게임 루프 전) ---
@@ -60,6 +66,7 @@ while running:
             running = False
         
         # --- 이벤트 처리 ---
+        # 키다운 이벤트
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_1: # 1번: 소파
                 selected_furniture_index = 0
@@ -67,17 +74,34 @@ while running:
                 selected_furniture_index = 1
             if event.key == pygame.K_3: # 3번: 침대
                 selected_furniture_index = 2
+            # 'E' 키로 평가 진행
             if event.key == pygame.K_e:
                 if model_manager and request_embedding:
-                    # model_manager와 request_embedding을 인자로 전달
-                    evaluation_result = evaluation.evaluate_design(
+                    # 4.1. 점수 계산 (evaluation.py 호출)
+                    eval_data = evaluation.evaluate_design(
                         model_manager, 
                         request_embedding, 
                         placed_furniture
                     )
+                    
+                    # 4.2. 상세 피드백 생성 (client.py 호출)
+                    feedback_text = client.generate_feedback(
+                        model_manager,
+                        current_request_text,
+                        eval_data['description'],
+                        eval_data['score']
+                    )
+                    
+                    # 4.3. 결과 통합
+                    evaluation_result = {
+                        "score": eval_data['score'],
+                        "description": eval_data['description'],
+                        "feedback": feedback_text
+                    }
                 else:
-                    print("Evaluation system is not ready.")
+                    print("평가 시스템이 준비되지 않음")
         
+        # 클릭 이벤트
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1: # 좌클릭: 배치
                 # 게임 영역 안에서만 배치
@@ -119,10 +143,17 @@ while running:
     screen.blit(ghost_surface, (mouse_grid_x * GRID_SIZE, mouse_grid_y * GRID_SIZE))
 
     # 4. UI 영역 그리기
-    pygame.draw.rect(screen, (230, 230, 230), (GAME_AREA_WIDTH, 0, UI_MARGIN, SCREEN_HEIGHT))
+    pygame.draw.rect(screen, (230, 230, 230), (GAME_AREA_WIDTH, 0, UI_MARGIN, SCREEN_HEIGHT))   
     
     # 4.1 UI 텍스트 (기존)
-    # ... (생략) ...
+    selected_text = f"Selected: {FURNITURE_LIST[selected_furniture_index]['name']}"
+    text_render = font.render(selected_text, True, (0,0,0))
+    screen.blit(text_render, (GAME_AREA_WIDTH + 10, 10))
+    
+    info_text_1 = font.render("Keys: 1(Sofa), 2(Table), 3(Bed)", True, (0,0,0))
+    screen.blit(info_text_1, (GAME_AREA_WIDTH + 10, 40))
+    info_text_2 = font.render("L-Click: Place, R-Click: Undo", True, (0,0,0))
+    screen.blit(info_text_2, (GAME_AREA_WIDTH + 10, 70))
     info_text_3 = font.render("Press 'E' to Evaluate", True, (0, 0, 150))
     screen.blit(info_text_3, (GAME_AREA_WIDTH + 10, 100))
 
@@ -130,14 +161,44 @@ while running:
     req_title = font.render("Client Request:", True, (0,0,0))
     screen.blit(req_title, (GAME_AREA_WIDTH + 10, 150))
     # (텍스트 자동 줄바꿈 필요하지만, 지금은 간단히)
-    req_text = font.render(current_request_text[:20] + "...", True, (50,50,50))
-    screen.blit(req_text, (GAME_AREA_WIDTH + 10, 180))
+    y_offset = 180
+    words = current_request_text.split(' ')
+    line = ""
+
+    for word in words:
+        if font.size(line + " " + word)[0] < UI_MARGIN - 20:
+            line += " " + word
+        else:
+            screen.blit(font.render(line.strip(), True, (50,50,50)), (GAME_AREA_WIDTH + 10, y_offset))
+            y_offset += 25
+            line = word
+
+    screen.blit(font.render(line.strip(), True, (50,50,50)), (GAME_AREA_WIDTH + 10, y_offset))
     
     # 4.3 평가 결과 표시
     if evaluation_result:
+        # 점수 표시
         score_str = f"Score: {evaluation_result['score']:.1f} / 5.0"
         score_render = font.render(score_str, True, (0, 100, 0))
-        screen.blit(score_render, (GAME_AREA_WIDTH + 10, 220))
+        screen.blit(score_render, (GAME_AREA_WIDTH + 10, y_offset + 40)) # y_offset 기준
+
+        # 피드백 표시
+        feedback_title = font.render("Feedback:", True, (0,0,0))
+        screen.blit(feedback_title, (GAME_AREA_WIDTH + 10, y_offset + 70))
+        
+        y_offset_feedback = y_offset + 100
+        words = evaluation_result['feedback'].split(' ')
+        line = ""
+
+        for word in words:
+            if font.size(line + " " + word)[0] < UI_MARGIN - 20:
+                line += " " + word
+            else:
+                screen.blit(font.render(line.strip(), True, (50,50,50)), (GAME_AREA_WIDTH + 10, y_offset_feedback))
+                y_offset_feedback += 25
+                line = word
+                
+        screen.blit(font.render(line.strip(), True, (50,50,50)), (GAME_AREA_WIDTH + 10, y_offset_feedback))
 
     # --- 업데이트 ---
     pygame.display.flip()
