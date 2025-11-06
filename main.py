@@ -12,13 +12,13 @@ from model import ModelManager
 import furnitures 
 
 # ========= 상수 정의 =========
-GRID_SIZE = 64  # 각 격자 크기
+GRID_SIZE = 72  # 각 격자 크기
 ROOM_WIDTH_GRID = 10 # 가로 칸 수
 ROOM_HEIGHT_GRID = 8 # 세로 칸 수
 
 # --- 레이아웃 상수 ---
-GAME_AREA_WIDTH = ROOM_WIDTH_GRID * GRID_SIZE    # 600
-GAME_AREA_HEIGHT = ROOM_HEIGHT_GRID * GRID_SIZE  # 480
+GAME_AREA_WIDTH = ROOM_WIDTH_GRID * GRID_SIZE    # 720
+GAME_AREA_HEIGHT = ROOM_HEIGHT_GRID * GRID_SIZE  # 576
 
 RIGHT_UI_MARGIN = 300  # 오른쪽 UI 패널 너비
 BOTTOM_UI_MARGIN = 170 # 하단 UI 패널 높이 (새로운 UI_ITEM_HEIGHT * 2 + 여백 30)
