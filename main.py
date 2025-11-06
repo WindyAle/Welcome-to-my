@@ -23,8 +23,8 @@ GAME_AREA_HEIGHT = ROOM_HEIGHT_GRID * GRID_SIZE  # 576
 RIGHT_UI_MARGIN = 300  # 오른쪽 UI 패널 너비
 BOTTOM_UI_MARGIN = 170 # 하단 UI 패널 높이 (새로운 UI_ITEM_HEIGHT * 2 + 여백 30)
 
-SCREEN_WIDTH = GAME_AREA_WIDTH + RIGHT_UI_MARGIN   # 900
-SCREEN_HEIGHT = GAME_AREA_HEIGHT + BOTTOM_UI_MARGIN # 650
+SCREEN_WIDTH = GAME_AREA_WIDTH + RIGHT_UI_MARGIN   # 1020
+SCREEN_HEIGHT = GAME_AREA_HEIGHT + BOTTOM_UI_MARGIN # 746
 
 # 폰트 설정
 FONT_PATH = "font/NanumGothic-Regular.ttf"
@@ -39,7 +39,7 @@ clock = pygame.time.Clock() # FPS를 위한 시계
 
 # --- 화면 및 폰트 로드 ---
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("HouSKetch - v0.4 (UI Revised)")
+pygame.display.set_caption("Well... come to my Home")
 
 font_XL = pygame.font.Font(FONT_PATH, 48) # 큰
 font_L = pygame.font.Font(FONT_PATH, 22) # 큰
@@ -52,77 +52,11 @@ font_Pencil_M = pygame.font.Font(PENCIL_FONT_PATH, 16)
 
 DOOR_COLOR = (101, 67, 33) # 문 색: 짙은 갈색
 
-# --- 스플래시 스크린 ---
-def run_splash_screen(screen, clock, font):
-    """
-    Fade-in / Fade-out 스플래시 스크린을 실행합니다.
-    """
-    # 로고 또는 텍스트 설정
-    text_surf = font.render("SKN19 LLM Project", True, (80, 80, 80)) # 어두운 회색
-    text_rect = text_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-    
-    fade_duration_frames = 60 # 1초 (60 FPS 기준)
-    alpha_step = 255 / fade_duration_frames
-    
-    # --- Fade-in ---
-    alpha = 0
-    while alpha < 255:
-        # 이벤트 처리 (스킵)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                return # 스킵
-
-        alpha += alpha_step
-        if alpha > 255: alpha = 255
-        
-        screen.fill((255, 255, 255)) # 흰색 배경
-        text_surf.set_alpha(int(alpha))
-        screen.blit(text_surf, text_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
-
-    # --- Hold (1초 대기) ---
-    hold_start_time = pygame.time.get_ticks()
-    while pygame.time.get_ticks() - hold_start_time < 1000:
-        # 이벤트 처리 (스킵)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                return # 스킵
-        clock.tick(60) # 이벤트 루프를 위해 tick은 유지
-
-    # --- Fade-out ---
-    alpha = 255
-    while alpha > 0:
-        # 이벤트 처리 (스킵)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                return # 스킵
-
-        alpha -= alpha_step
-        if alpha < 0: alpha = 0
-        
-        screen.fill((255, 255, 255)) # 흰색 배경
-        text_surf.set_alpha(int(alpha))
-        screen.blit(text_surf, text_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
-
 # ========= 리소스 로딩 스레드 함수 =========
 def load_game_resources(results_dict, completion_event, progress_tracker):
     """
     (백그라운드 스레드) 모든 무거운 리소스(이미지, 모델)를 로드합니다.
-    (수정) progress_tracker를 업데이트하여 진행률을 알립니다.
+    progress_tracker를 업데이트하여 진행률을 알립니다.
     """
     try:
         total_steps = 5 # 총 5단계 작업
@@ -191,63 +125,106 @@ def load_game_resources(results_dict, completion_event, progress_tracker):
 # ========= 로딩 스크린 함수 =========
 def run_loading_screen(screen, clock, font_l, font_m):
     """
-    (메인 스레드) 리소스가 로드되는 동안 0-100% 게이지 바를 표시합니다.
+    (메인 스레드) 'background.png' 배경과 'start_button.png'를 사용하는
+    새로운 로딩 스크린을 실행합니다.
     """
+    
+    # --- 1. 로딩 스크린 자체 에셋 로드 ---
+    try:
+        loading_bg_image = pygame.image.load("assets/background.png").convert()
+        loading_bg_image = pygame.transform.scale(loading_bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    except Exception as e:
+        print(f"로딩 배경 로드 실패 (background.png): {e}")
+        loading_bg_image = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        loading_bg_image.fill((255, 255, 255)) # 흰색으로 대체
+
+    try:
+        start_button_image = pygame.image.load("assets/start_button.png").convert_alpha()
+        start_button_image = pygame.transform.scale(start_button_image, (350, 145))
+    except Exception as e:
+        print(f"시작 버튼 로드 실패 (start_button.png): {e}")
+        start_button_image = pygame.Surface((200, 80), pygame.SRCALPHA)
+        start_button_image.fill((0, 200, 0, 150)) # 임시 녹색 버튼
+        # 임시 버튼에 텍스트 그리기
+        temp_text = font_l.render("START", True, (255, 255, 255))
+        temp_rect = temp_text.get_rect(center=start_button_image.get_rect().center)
+        start_button_image.blit(temp_text, temp_rect)
+
+    # --- 2. 리소스 로딩 스레드 시작 ---
     loading_results = {}
     loading_complete_event = threading.Event()
-    # 진행률 추적 딕셔너리
     progress_tracker = {"step": 0, "total_steps": 5, "status": "초기화 중..."}
     
-    # 백그라운드 스레드 시작
     loader_thread = threading.Thread(
         target=load_game_resources, 
         args=(loading_results, loading_complete_event, progress_tracker)
     )
     loader_thread.start()
     
-    bar_width = 400 # (수정) 전체 바 너비
+    # --- 3. UI 위치 계산 (하단) ---
+    bar_width = 400
     bar_height = 30
     bar_x = (SCREEN_WIDTH - bar_width) // 2
-    bar_y = (SCREEN_HEIGHT - bar_height) // 2 + 50
+    bar_y = SCREEN_HEIGHT - 100 # (수정) 화면 하단으로 이동
     
-    current_progress = 0.0 # (수정) 현재 게이지 (0.0 ~ 1.0)
-    target_progress = 0.0 # (수정) 스레드가 보고한 목표 게이지
+    # 시작 버튼 위치 (로딩 바와 동일한 위치)
+    start_button_rect = start_button_image.get_rect(center=(SCREEN_WIDTH // 2, bar_y + bar_height // 2))
 
-    while not loading_complete_event.is_set():
-        # 메인 스레드는 이벤트 루프를 계속 실행
+    # --- 4. 로딩 루프 (상태 관리) ---
+    current_progress = 0.0 
+    target_progress = 0.0 
+    is_fully_loaded = False # (신규) 로딩 완료 상태
+    
+    running_loading_screen = True
+    while running_loading_screen:
+        
+        # (신규) 스레드가 완료되었는지 확인
+        if not is_fully_loaded and loading_complete_event.is_set():
+            is_fully_loaded = True
+            current_progress = 1.0 # 100%로 강제
+            progress_tracker["status"] = "로드 완료! 시작 버튼을 누르세요."
+
+        # --- 이벤트 처리 ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-        
-        # 부드러운 게이지 애니메이션
-        target_progress = progress_tracker["step"] / progress_tracker["total_steps"]
-        # 현재 게이지가 목표 게이지를 따라가도록 부드럽게 증가
-        if current_progress < target_progress:
-            current_progress += 0.01 # 부드럽게 차오르는 속도
-            if current_progress > target_progress:
-                current_progress = target_progress
+            
+            # (신규) 로딩 완료 후 시작 버튼 클릭 감지
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if is_fully_loaded:
+                    if start_button_rect.collidepoint(event.pos):
+                        running_loading_screen = False # 루프 종료
 
-        screen.fill((255, 255, 255)) # 흰색 배경
+        # --- 그리기 ---
+        # 1. 배경 이미지
+        screen.blit(loading_bg_image, (0, 0))
         
-        # (수정) 로딩 상태 텍스트
-        status_text = progress_tracker["status"]
-        text_surf = font_m.render(status_text, True, (80, 80, 80))
-        text_rect = text_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))
-        screen.blit(text_surf, text_rect)
-        
-        # 로딩 바 (배경)
-        pygame.draw.rect(screen, (200, 200, 200), (bar_x, bar_y, bar_width, bar_height), border_radius=5)
-        
-        # 로딩 바 (채워지는 부분)
-        current_bar_width = int(bar_width * current_progress)
-        if current_bar_width > 0:
-            pygame.draw.rect(screen, (0, 150, 0), (bar_x, bar_y, current_bar_width, bar_height), border_radius=5)
-        
-        # 퍼센트 텍스트
-        percent_text = font_m.render(f"{int(current_progress * 100)}%", True, (255, 255, 255))
-        percent_rect = percent_text.get_rect(center=(bar_x + bar_width // 2, bar_y + bar_height // 2))
-        screen.blit(percent_text, percent_rect)
+        if is_fully_loaded:
+            # 2a. 로딩 완료: 시작 버튼 표시
+            screen.blit(start_button_image, start_button_rect)
+            
+        else:
+            # 2b. 로딩 중: 로딩 바 표시
+            # (수정) 게이지 애니메이션
+            target_progress = progress_tracker["step"] / progress_tracker["total_steps"]
+            if current_progress < target_progress:
+                current_progress += 0.01 
+                if current_progress > target_progress:
+                    current_progress = target_progress
+            
+            # 로딩 바 (배경)
+            pygame.draw.rect(screen, (50, 50, 50, 200), (bar_x, bar_y, bar_width, bar_height), border_radius=5)
+            
+            # 로딩 바 (채워지는 부분)
+            current_bar_width = int(bar_width * current_progress)
+            if current_bar_width > 0:
+                pygame.draw.rect(screen, (0, 150, 0), (bar_x, bar_y, current_bar_width, bar_height), border_radius=5)
+            
+            # 퍼센트 텍스트
+            percent_text = font_m.render(f"{int(current_progress * 100)}%", True, (255, 255, 255))
+            percent_rect = percent_text.get_rect(center=(bar_x + bar_width // 2, bar_y + bar_height // 2))
+            screen.blit(percent_text, percent_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -255,8 +232,7 @@ def run_loading_screen(screen, clock, font_l, font_m):
     loader_thread.join() # 스레드가 완전히 종료될 때까지 대기
     return loading_results
 
-# ========= 스플래시 및 로딩 실행 =========
-# run_splash_screen(screen, clock, font_XL)
+# ========= 로딩 실행 =========
 loaded_resources = run_loading_screen(screen, clock, font_L, font_M)
 
 # ========= 리소스 전역 변수 할당 =========
@@ -414,7 +390,9 @@ def trigger_evaluation():
     print("평가 시작...")
     eval_data = evaluation.evaluate_design(
         model_manager, 
-        request_embedding, 
+        # request_embedding,
+        current_request_text, # (신규 추가)
+        internal_wishlist,    # (신규 추가)
         placed_furniture,
         ROOM_WIDTH_GRID,
         ROOM_HEIGHT_GRID
@@ -489,12 +467,15 @@ selected_furniture_index = 0
 selected_furniture_rotation = 0 # 0: 기본, 1: 90도
 ui_buttons = []
 
-# (수정) 하단 UI 스크롤 변수
-ui_scroll_x = 0
-UI_ITEM_WIDTH = 180 # 각 가구 목록 아이템의 너비
-UI_ITEM_HEIGHT = 70 # 각 가구 목록 아이템의 높이
+# 하단 UI 스크롤 변수 (Y축 스크롤)
+ui_scroll_y = 0 # (수정) ui_scroll_x -> ui_scroll_y
+UI_ITEM_WIDTH = 180 # 각 가구 목록 아이템의 너비 (5개 배치)
+UI_ITEM_HEIGHT = 80 # 각 가구 목록 아이템의 높이 (2줄 표시)
+# 5열 배치를 위한 좌우 여백 계산
+TOTAL_ITEMS_WIDTH = 5 * UI_ITEM_WIDTH
+BOTTOM_UI_PADDING_X = (SCREEN_WIDTH - TOTAL_ITEMS_WIDTH) // 2 # (1020 - 900) / 2 = 60
 
-# (수정) UI 레이아웃 Rect 정의
+# UI 레이아웃 Rect 정의
 game_area_rect = pygame.Rect(0, 0, GAME_AREA_WIDTH, GAME_AREA_HEIGHT)
 right_ui_rect = pygame.Rect(GAME_AREA_WIDTH, 0, RIGHT_UI_MARGIN, GAME_AREA_HEIGHT)
 bottom_ui_rect = pygame.Rect(0, GAME_AREA_HEIGHT, SCREEN_WIDTH, BOTTOM_UI_MARGIN)
@@ -543,18 +524,19 @@ while running:
             pygame.quit()
             sys.exit()
         
-        # --- 하단 패널 횡방향 스크롤 ---
+        # --- 하단 패널 종방향 스크롤 ---
         if event.type == pygame.MOUSEWHEEL:
             if not is_evaluating and not show_feedback_popup:
                 # 마우스가 하단 UI 영역에 있을 때만 스크롤
                 if bottom_ui_rect.collidepoint(mouse_pos):
-                    ui_scroll_x += event.y * 30 # (event.y가 횡방향 스크롤을 제어)
+                    ui_scroll_y += event.y * 30 # Y축 스크롤
                     
                     # 스크롤 범위 제한
-                    total_list_width = math.ceil(len(FURNITURE_LIST) / 2) * UI_ITEM_WIDTH
-                    max_scroll = max(0, total_list_width - SCREEN_WIDTH)
+                    total_rows = math.ceil(len(FURNITURE_LIST) / 5) # 5열 기준
+                    total_list_height = total_rows * UI_ITEM_HEIGHT
+                    max_scroll = max(0, total_list_height - BOTTOM_UI_MARGIN)
                     
-                    ui_scroll_x = max(min(ui_scroll_x, 0), -max_scroll)
+                    ui_scroll_y = max(min(ui_scroll_y, 0), -max_scroll)
         
         # --- 키다운 이벤트 ---
         if event.type == pygame.KEYDOWN:
@@ -688,20 +670,12 @@ while running:
     # 3.1 도움말 패널
     ui_y_offset = 10 # 오른쪽 패널 상단 기준
 
-    # (신규) 초기화 버튼 그리기
-    reset_button_rect = pygame.Rect(GAME_AREA_WIDTH + RIGHT_UI_MARGIN - 80, ui_y_offset, 70, 30) # 오른쪽 상단
-    mouse_over_reset = reset_button_rect.collidepoint(mouse_pos)
-    reset_btn_color = (255, 100, 100) if mouse_over_reset else (200, 80, 80)
-    pygame.draw.rect(screen, reset_btn_color, reset_button_rect, border_radius=5)
-    reset_text = font_M.render("초기화", True, (255, 255, 255))
-    screen.blit(reset_text, reset_text.get_rect(center=reset_button_rect.center))
-
     screen.blit(font_S.render("R: 회전 / E: 평가", True, (100,100,100)), (GAME_AREA_WIDTH + 10, ui_y_offset))
     ui_y_offset += 25
     screen.blit(font_S.render("L-Click: 배치 / R-Click: 제거", True, (100,100,100)), (GAME_AREA_WIDTH + 10, ui_y_offset))
     ui_y_offset += 30
 
-    # (수정) 3.2 페르소나 정보 및 고객 의뢰서 표시
+    # 3.2 페르소나 정보 및 고객 의뢰서 표시
     ui_y_offset += 20 
     pygame.draw.line(screen, (220,220,220), (GAME_AREA_WIDTH + 10, ui_y_offset), (SCREEN_WIDTH - 20, ui_y_offset), 2)
     ui_y_offset += 15
@@ -745,11 +719,21 @@ while running:
             (40, 40, 40) # 손글씨 색
         )
         ui_y_offset = post_it_rect.bottom # Y 오프셋을 포스트잇 바닥으로
-    
+
     # 3.3 '디자인 완료' 버튼 또는 '평가 결과' 표시
     ui_y_offset += 20 # 의뢰서와 버튼/결과 사이 여백
     
-    # (수정) 평가가 아직 수행되지 않았을 때만 '디자인 완료' 버튼 표시
+    # 리셋 버튼
+    reset_button_rect = pygame.Rect(GAME_AREA_WIDTH + 10, ui_y_offset, RIGHT_UI_MARGIN - 20, 40)
+    mouse_over_reset = reset_button_rect.collidepoint(mouse_pos)
+    reset_btn_color = (255, 100, 100) if mouse_over_reset else (200, 80, 80)
+    pygame.draw.rect(screen, reset_btn_color, reset_button_rect, border_radius=5)
+    reset_text = font_M.render("Reset", True, (255, 255, 255))
+    screen.blit(reset_text, reset_text.get_rect(center=reset_button_rect.center))
+    
+    ui_y_offset += 50 # 리셋 버튼과 완료 버튼 사이 여백
+
+    # 평가가 아직 수행되지 않았을 때만 Complete 버튼 표시
     if not evaluation_result:
         evaluate_button_rect = pygame.Rect(GAME_AREA_WIDTH + 10, ui_y_offset, RIGHT_UI_MARGIN - 20, 50)
         
@@ -764,7 +748,7 @@ while running:
             
         pygame.draw.rect(screen, button_color, evaluate_button_rect, border_radius=5)
         
-        btn_text = font_L.render(" ✅ ", True, (255, 255, 255))
+        btn_text = font_L.render("Complete (E)", True, (255, 255, 255))
         btn_text_rect = btn_text.get_rect(center=evaluate_button_rect.center)
         screen.blit(btn_text, btn_text_rect)
 
@@ -775,28 +759,28 @@ while running:
     ui_buttons.clear()
     
     for i, item in enumerate(FURNITURE_LIST):
-        # 2줄 배치 로직
-        row = i % 2
-        col = i // 2
+        # 5열 배치 로직
+        row = i // 5
+        col = i % 5
         
         # 버튼의 '논리적' X, Y 위치 (스크롤 적용 및 여백)
-        item_x_pos = (col * UI_ITEM_WIDTH) + ui_scroll_x + 10 # 10px 좌측 여백
-        item_y_pos = (row * UI_ITEM_HEIGHT) + 10 # 10px 상단 여백
+        item_x_pos = (col * UI_ITEM_WIDTH) + BOTTOM_UI_PADDING_X # (수정) 좌우 여백 적용
+        item_y_pos = (row * UI_ITEM_HEIGHT) + 10 + ui_scroll_y # (수정) Y축 스크롤
         
         # 버튼 크기 (가로 145, 세로 60)
         button_rect = pygame.Rect(item_x_pos, item_y_pos, UI_ITEM_WIDTH - 10, UI_ITEM_HEIGHT - 10) # 10px, 10px 여백
         
         # 화면에 보이는 영역에만 버튼을 그림
-        if item_x_pos + UI_ITEM_WIDTH > 0 and item_x_pos < SCREEN_WIDTH:
+        if item_y_pos + UI_ITEM_HEIGHT > 0 and item_y_pos < BOTTOM_UI_MARGIN:
             
             # 실제 화면 좌표 기준 Rect (클릭 감지용)
             button_rect_screen = pygame.Rect(item_x_pos + 10, item_y_pos + GAME_AREA_HEIGHT, UI_ITEM_WIDTH - 10, UI_ITEM_HEIGHT - 10)
             ui_buttons.append({"index": i, "rect_screen": button_rect_screen})
             
-            # 선택된 아이템은 녹색으로 하이라이트
+            # (복원) 선택된 아이템은 녹색, 기본은 연한 회색
             button_color = (150, 255, 150) if i == selected_furniture_index else (220, 220, 220)
             pygame.draw.rect(bottom_panel, button_color, button_rect, border_radius=5)
-            
+
             # 가구 썸네일 이미지
             try:
                 # 썸네일 크기 (가로 50, 세로 50)
@@ -827,7 +811,7 @@ while running:
         loading_rect = loading_text.get_rect(center=(center_x, center_y))
         screen.blit(loading_text, loading_rect)
     elif show_feedback_popup:
-        # 3. (수정) 피드백 팝업 (모서리가 둥근 사각형)
+        # 3. 피드백 팝업 (모서리가 둥근 사각형)
         if evaluation_result:
             # 3.1 팝업 배경 (모서리가 둥근 사각형)
             popup_width = max(400, SCREEN_WIDTH // 2)
@@ -835,7 +819,7 @@ while running:
             popup_rect = pygame.Rect(0, 0, popup_width, popup_height)
             popup_rect.center = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
             
-            # (신규) paper.png 대신 사각형 그리기
+            # paper.png 대신 사각형 그리기
             popup_bg_color = (250, 248, 240) # 포스트잇과 유사한 아이보리색
             popup_border_radius = 15
             pygame.draw.rect(screen, popup_bg_color, popup_rect, border_radius=popup_border_radius)
@@ -884,4 +868,3 @@ while running:
 
 pygame.quit()
 sys.exit()
-

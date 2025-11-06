@@ -26,25 +26,53 @@ def load_furniture_data(grid_size):
     """
     FURNITURE_LIST = [
         {
-            "name": "소파",
+            "name": "작은 소파",
             "size": (2, 1), # 격자 2x1 크기
-            "image_path": "assets/sofa_2.png",
-            "image": load_scaled_image("assets/sofa_2.png", (2, 1), grid_size),
+            "image_path": "assets/sofa.png",
+            "image": load_scaled_image("assets/sofa.png", (2, 1), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "큰 소파",
+            "size": (3, 1),
+            "image_path": "assets/sofa_long.png",
+            "image": load_scaled_image("assets/sofa_long.png", (3, 1), grid_size),
             "color": (120, 50, 50) # (평가용 임시 색상)
         },
         {
             "name": "테이블",
-            "size": (2, 1),
-            "image_path": "assets/table_2.png",
-            "image": load_scaled_image("assets/table_2.png", (2, 1), grid_size),
+            "size": (1, 1),
+            "image_path": "assets/table.png",
+            "image": load_scaled_image("assets/table.png", (1, 1), grid_size),
             "color": (150, 100, 30)
         },
         {
-            "name": "침대",
+            "name": "식탁",
+            "size": (2, 1),
+            "image_path": "assets/table_long.png",
+            "image": load_scaled_image("assets/table_long.png", (2, 1), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "벽난로",
+            "size": (2, 2),
+            "image_path": "assets/fire.png",
+            "image": load_scaled_image("assets/fire.png", (2, 2), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "2인 침대",
             "size": (2, 3),
-            "image_path": "assets/bed.png",
-            "image": load_scaled_image("assets/bed.png", (2, 3), grid_size), # (오류 수정)
+            "image_path": "assets/bed_double.png",
+            "image": load_scaled_image("assets/bed_double.png", (2, 3), grid_size), # (오류 수정)
             "color": (50, 50, 120)
+        },
+        {
+            "name": "1인 침대",
+            "size": (1, 3),
+            "image_path": "assets/bed_single.png",
+            "image": load_scaled_image("assets/bed_single.png", (1, 3), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
         },
         {
             "name": "화분",
@@ -94,7 +122,63 @@ def load_furniture_data(grid_size):
             "image_path": "assets/shelf.png",
             "image": load_scaled_image("assets/shelf.png", (2, 2), grid_size),
             "color": (30, 100, 30)
-        }
+        },
+        {
+            "name": "시계",
+            "size": (1, 2),
+            "image_path": "assets/clock.png",
+            "image": load_scaled_image("assets/clock.png", (1, 2), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "옷걸이",
+            "size": (1, 2),
+            "image_path": "assets/hanger.png",
+            "image": load_scaled_image("assets/hanger.png", (1, 2), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "다리미판",
+            "size": (1, 1),
+            "image_path": "assets/iron_plate.png",
+            "image": load_scaled_image("assets/iron_plate.png", (1, 1), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "거울",
+            "size": (1, 2),
+            "image_path": "assets/mirror.png",
+            "image": load_scaled_image("assets/mirror.png", (1, 2), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "냉장고",
+            "size": (1, 2),
+            "image_path": "assets/refridge.png",
+            "image": load_scaled_image("assets/refridge.png", (1, 2), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "스토브",
+            "size": (2, 2),
+            "image_path": "assets/stove.png",
+            "image": load_scaled_image("assets/stove.png", (2, 2), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "변기",
+            "size": (1, 1),
+            "image_path": "assets/toilet.png",
+            "image": load_scaled_image("assets/toilet.png", (1, 1), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
+        {
+            "name": "욕조",
+            "size": (2, 1),
+            "image_path": "assets/bath.png",
+            "image": load_scaled_image("assets/bath.png", (2, 1), grid_size),
+            "color": (120, 50, 50) # (평가용 임시 색상)
+        },
     ]
     
     # 이미지 로드에 실패한 아이템 제거

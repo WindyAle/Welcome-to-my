@@ -1,5 +1,6 @@
 # evaluation.py (Refactored)
 import numpy as np
+import re
 
 # --- 1. 디자인 설명서 생성 (로직 동일) ---
 
@@ -107,39 +108,100 @@ def calculate_similarity_score(vec_a: list[float], vec_b: list[float]) -> float:
     score = ((cosine_similarity + 1) / 2) * 5.0
     return score
 
-# --- 3. 평가 실행 (NEW: ModelManager를 인자로 받음) ---
-
-def evaluate_design(model_manager, request_embedding: list, placed_furniture: list, room_width: int, room_height: int):
+# (신규) AI 평가자(LLM-as-Judge)를 호출하는 함수
+def get_llm_judge_score(model_manager, request_text, internal_wishlist, design_description):
     """
-    전체 평가 프로세스를 실행하고 점수와 설명을 반환합니다.
+    채팅 모델(LLM)을 '평가자'로 사용하여, 
+    요구사항, 위시리스트, 실제 디자인을 복합적으로 평가하여 0~5점 사이의 점수를 반환합니다.
+    """
+    print("🤖 AI 평가자(LLM-as-Judge)가 점수 계산 중...")
+
+    system_prompt = (
+        "당신은 까다로운 인테리어 디자인 평가자입니다. "
+        "당신은 0.0에서 5.0 사이의 소수점 한 자리 점수(예: '3.5')만을 반환해야 합니다. "
+        "다른 말은 절대 하지 마세요. 오직 숫자만 응답하세요."
+    )
+    
+    wishlist_str = ", ".join(internal_wishlist) if internal_wishlist else "없음"
+
+    user_prompt = (
+        "다음은 평가 자료입니다.\n\n"
+        f"--- 1. 고객의 공개 의뢰서 (분위기 점수 40% 반영) ---\n"
+        f"\"{request_text}\"\n\n"
+        
+        f"--- 2. 고객의 비밀 위시리스트 (사실 점수 60% 반영) ---\n"
+        f"[{wishlist_str}]\n\n"
+        
+        f"--- 3. 실제 디자인 결과 (묘사) ---\n"
+        f"\"{design_description}\"\n\n"
+        
+        "--- 평가 가이드라인 ---\n"
+        "1. [사실(60%)] '디자인 결과(3)'에 '비밀 위시리스트(2)'의 가구가 포함되어 있습니까? (가장 중요)\n"
+        "2. [분위기(40%)] '디자인 결과(3)'가 '공개 의뢰서(1)'의 모호한 분위기(예: 아늑함, 모던함)를 만족시킵니까?\n"
+        "3. [감점] '디자인 결과(3)' 묘사 중 '빽빽하게', '복잡해' 등의 부정적 표현이 있다면 감점하세요.\n\n"
+        "이 모든 것을 고려하여 0.0~5.0 사이의 최종 점수(숫자)만 반환하세요:"
+    )
+    
+    try:
+        raw_score = model_manager.get_chat_response(system_prompt, user_prompt)
+        # LLM이 반환한 텍스트에서 숫자만 추출 (예: "4.5점입니다" -> 4.5)
+        score_match = re.search(r"(\d\.\d)", raw_score)
+        if score_match:
+            return float(score_match.group(1))
+        else:
+            # LLM이 이상한 답을 줬을 때 Fallback
+            return float(raw_score.strip())
+    except Exception as e:
+        print(f"🚨 AI 평가자 점수 변환 실패: {e}")
+        return 0.0
+
+# --- 3. 평가 실행 (NEW: ModelManager를 인자로 받음) ---
+def evaluate_design(model_manager, request_text: str, internal_wishlist: list, placed_furniture: list, room_width: int, room_height: int):
+    """
+    (수정) LLM-as-Judge 방식으로 전체 평가 프로세스를 실행합니다.
     
     Args:
-        model_manager (ModelManager): Ollama 통신을 위한 객체
-        request_embedding (list): 미리 계산된 고객 요구사항 벡터 (A)
-        placed_furniture (list): Pygame에서 전달된 가구 목록
-        
-    Returns:
-        dict: 점수와 디자인 설명을 포함한 결과
+        model_manager (ModelManager): Ollama 통신 객체
+        request_embedding (list): (더 이상 사용되지 않지만, 호환성을 위해 남겨둘 수 있음)
+        request_text (str): (신규) A - 공개 의뢰서
+        internal_wishlist (list): (신규) Secret - 비밀 위시리스트
+        placed_furniture (list): B - 배치된 가구
     """
-    print("\n--- [ 고객 평가 ] ---")
+    print("\n--- [ 고객 평가 (LLM-Judge) ] ---")
     
     # 1. 현재 디자인(B)을 자연어로 변환
     design_desc = describe_design(placed_furniture, room_width, room_height)
     
-    # 2. 디자인(B)을 EEVE 벡터로 변환 (ModelManager 사용)
-    design_embedding = model_manager.get_embedding(design_desc)
-    
-    if not design_embedding:
-        print("🚨 임베딩 실패 (design_embedding)")
-        return {"score": 0.0, "description": "Evaluation failed."}
+    # 2. LLM-Judge 호출
+    base_score = get_llm_judge_score(
+        model_manager,
+        request_text,      # (A) 공개 의뢰서
+        internal_wishlist, # (Secret) 비밀 위시리스트
+        design_desc        # (B) 실제 디자인
+    )
 
-    # 3. 점수 계산
-    score = calculate_similarity_score(request_embedding, design_embedding)
+    # --- 3. 위시리스트 페널티 계산 ---
+    penalty = 0.0
+    missing_items = []
+
+    # 현재 배치된 모든 가구의 이름 (중복 제거)
+    placed_names = set([f['item']['name'] for f in placed_furniture])
+    
+    for item in internal_wishlist:
+        # 위시리스트의 아이템(예: "소파")이
+        # 배치된 가구 이름(예: "작은 소파", "큰 소파")에 포함되는지 확인
+        if item not in placed_names:
+            print(f"   [페널티] 요구 가구 '{item}' 누락.")
+            missing_items.append(item)
+            penalty += 0.5
+            
+    # 4. 최종 점수 계산
+    final_score = max(0.0, base_score - penalty) # 0점 미만 방지
     
     result = {
-        "score": score,
-        "description": design_desc
+        "score": final_score,
+        "description": design_desc 
     }
     
-    print(f"제 점수는요... {score:.1f} / 5.0")
+    print(f"점수: {final_score:.1f}")
     return result
